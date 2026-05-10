@@ -98,6 +98,11 @@ export function ScheduleProvider({ children }) {
     selectedTeacher,
     selectedGroup,
 
+    // State setters
+    setSelectedClass,
+    setSelectedTeacher,
+    setSelectedGroup,
+
     // Actions
     uploadFile,
     fetchClasses,
