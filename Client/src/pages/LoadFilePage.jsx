@@ -30,7 +30,7 @@ export default function LoadFilePage() {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setError('אנא בחר קובץ Excel');
+      setError('אנא בחר קובץ PDF');
       return;
     }
 
@@ -42,11 +42,7 @@ export default function LoadFilePage() {
     setMessage('');
 
     try {
-      const response = await axios.post('http://localhost:5000/api/schedule/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.post('/api/schedule/upload', formData);
 
       setMessage('הקובץ הועלה בהצלחה!');
       setSelectedFile(null);
@@ -85,7 +81,7 @@ export default function LoadFilePage() {
             <input
               ref={inputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".pdf"
               style={{ display: 'none' }}
               onChange={handleFileChange}
               disabled={loading}
@@ -97,7 +93,7 @@ export default function LoadFilePage() {
               fullWidth
               sx={{ mb: 2, textTransform: 'none' }}
             >
-              {selectedFile ? `✓ ${selectedFile.name}` : 'בחר קובץ Excel'}
+              {selectedFile ? `✓ ${selectedFile.name}` : 'בחר קובץ PDF'}
             </Button>
           </Box>
 

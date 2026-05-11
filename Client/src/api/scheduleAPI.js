@@ -4,9 +4,6 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // Schedule API endpoints
@@ -14,9 +11,7 @@ export const scheduleAPI = {
   upload: (file) => {
     const formData = new FormData();
     formData.append('file', file);
-    return apiClient.post('/schedule/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return apiClient.post('/schedule/upload', formData);
   },
 
   getClasses: () => apiClient.get('/schedule/classes'),
