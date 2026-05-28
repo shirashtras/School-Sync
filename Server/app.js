@@ -122,9 +122,7 @@ const rebuildScheduleData = (entries) => {
       ? classNames
       : [normalizeClassToken(rawClassName)].filter(Boolean);
     const teacherNames = sanitizeTeacherNames(rawTeacher);
-    const normalizedTeachers = teacherNames.length
-      ? teacherNames
-      : (rawTeacher ? [rawTeacher] : []);
+    const normalizedTeachers = teacherNames.length ? teacherNames : [];
     const finalGroup = isGroupEligibleSubject(subject) ? rawGroup : '';
 
     if (!normalizedClasses.length || !day || !time || !subject) return;
@@ -200,6 +198,15 @@ const SUBJECT_CONTINUATION_WORDS = new Set([
   'פרקי',
   'אבות',
   'חשבון',
+  'סיפור1',
+  'סיפור2',
+  'סיפור3',
+  'סיפור4',
+  'שבוע',
+  'ישראל',
+  'תפילה',
+  'חיים',
+  'ותפילה',
 ]);
 
 const SUBJECT_KEYWORDS = [
@@ -207,8 +214,14 @@ const SUBJECT_KEYWORDS = [
   'הבנת', 'הנקרא', 'הבעה', 'דקדוק', 'טבע', 'מולדת', 'היסטוריה', 'גאוגרפיה',
   'הנדסה', 'מלאכה', 'ציור', 'זמרה', 'התעמלות', 'כישורי חיים', 'פרשת שבוע',
   'באורי תפילה', 'פרקי אבות', 'העשרה', 'תגבור', 'שעת סיפור', 'זהב', 'חברה',
-  'גדולי ישראל', 'מהנה', 'ומשתנה', 'מיומנויות',
+  'גדולי ישראל', 'מהנה', 'ומשתנה', 'מיומנויות', 'שעת', 'סיפור', 'פרשת',
+  'תפילה', 'באורי', 'כישורי',
 ];
+
+const NON_TEACHER_TOKENS = new Set([
+  'שעת', 'סיפור', 'פרשת', 'תפילה', 'באורי', 'כישורי', 'חיים',
+  'גדולי', 'ישראל', 'משבצות',
+]);
 
 const isWeekdayLine = (line) => WEEK_DAYS.includes(line);
 const isHourLine = (line) => /^[1-8]$/.test(line);
@@ -255,9 +268,45 @@ const isLikelySubjectLine = (line) => {
   return SUBJECT_KEYWORDS.some((keyword) => text.includes(keyword));
 };
 
+const isLikelyTeacherLine = (line) => {
+  const text = (line || '').toString().trim();
+  if (!text) return false;
+  if (shouldSkipLessonLine(text)) return false;
+  if (isGroupToken(text)) return false;
+  if (isLikelySubjectLine(text)) return false;
+  return /[א-ת]/.test(text);
+};
+
+const normalizeJoinedText = (parts) => {
+  const merged = (parts || [])
+    .map((part) => (part || '').toString().trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+,/g, ',')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return merged;
+};
+
+const shouldMergeSubjectLine = (subjectParts, candidateLine) => {
+  const candidate = (candidateLine || '').toString().trim();
+  if (!candidate) return false;
+  if (shouldSkipLessonLine(candidate) || isGroupToken(candidate)) return false;
+  if (SUBJECT_CONTINUATION_WORDS.has(candidate)) return true;
+  if (/^סיפור[1-9]$/.test(candidate)) return true;
+
+  const previous = subjectParts.length
+    ? subjectParts[subjectParts.length - 1].toString().trim()
+    : '';
+  if (previous.endsWith(',')) return true;
+
+  return isLikelySubjectLine(candidate);
+};
+
 const sanitizeTeacherNames = (teacherValue) =>
   splitTeacherNames(teacherValue).filter((teacher) => {
     if (!teacher) return false;
+    if (NON_TEACHER_TOKENS.has(teacher)) return false;
     if (splitClassNames(teacher).length > 0) return false;
     if (/^\d+$/.test(teacher)) return false;
     if (isLikelySubjectLine(teacher)) return false;
@@ -292,35 +341,36 @@ const parseLessonsFromPdfLines = (lines) => {
   let index = 0;
 
   while (index < lines.length) {
-    let subject = lines[index];
-    if (shouldSkipLessonLine(subject)) {
+    const currentLine = lines[index];
+    if (shouldSkipLessonLine(currentLine)) {
       index += 1;
       continue;
     }
 
-    if (
+    const subjectParts = [currentLine];
+    while (
       index + 1 < lines.length &&
-      SUBJECT_CONTINUATION_WORDS.has(lines[index + 1])
+      shouldMergeSubjectLine(subjectParts, lines[index + 1])
     ) {
-      subject = `${subject} ${lines[index + 1]}`.trim();
+      subjectParts.push(lines[index + 1]);
       index += 1;
     }
+    const subject = normalizeJoinedText(subjectParts);
 
     let teacher = '';
     let group = '';
-
     if (index + 1 < lines.length && !shouldSkipLessonLine(lines[index + 1])) {
-      const teacherCandidate = lines[index + 1];
-      if (!isLikelySubjectLine(teacherCandidate) && !isGroupToken(teacherCandidate)) {
-        teacher = teacherCandidate;
+      const candidate = lines[index + 1];
+      if (isGroupToken(candidate)) {
+        group = candidate;
+        index += 1;
+      } else if (isLikelyTeacherLine(candidate)) {
+        teacher = candidate;
         index += 1;
       }
     }
 
-    if (teacher && isGroupToken(teacher)) {
-      group = teacher;
-      teacher = '';
-    } else if (index + 1 < lines.length && isGroupToken(lines[index + 1])) {
+    if (!group && index + 1 < lines.length && isGroupToken(lines[index + 1])) {
       group = lines[index + 1];
       index += 1;
     }
@@ -341,7 +391,7 @@ const parsePdfToRows = (pdfText) => {
 
     const days = [];
     let cursor = i;
-    while (cursor < lines.length && days.length < 3) {
+    while (cursor < lines.length && days.length < 2) {
       if (isWeekdayLine(lines[cursor])) days.push(lines[cursor]);
       cursor += 1;
     }
