@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { scheduleAPI } from '../api/scheduleAPI';
 import {
   Box,
   Button,
@@ -14,10 +14,27 @@ import {
 export default function LoadFilePage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [hasExistingSchedule, setHasExistingSchedule] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    const checkExistingSchedule = async () => {
+      try {
+        const response = await scheduleAPI.getStatus();
+        setHasExistingSchedule(Boolean(response.data?.isLoaded));
+      } catch (statusError) {
+        console.warn('Schedule status check failed', statusError);
+      } finally {
+        setCheckingStatus(false);
+      }
+    };
+
+    checkExistingSchedule();
+  }, []);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -30,30 +47,25 @@ export default function LoadFilePage() {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setError('אנא בחר קובץ PDF');
+      setError('אנא בחר קובץ Excel/PDF');
       return;
     }
-
-    const formData = new FormData();
-    formData.append('file', selectedFile);
 
     setLoading(true);
     setError('');
     setMessage('');
 
     try {
-      const response = await axios.post('/api/schedule/upload', formData);
+      const response = await scheduleAPI.upload(selectedFile);
 
       setMessage('הקובץ הועלה בהצלחה!');
       setSelectedFile(null);
       if (inputRef.current) {
         inputRef.current.value = '';
       }
-      console.log('Upload response:', response.data);
       navigate('/select');
     } catch (err) {
       setError(err.response?.data?.message || 'שגיאה בהעלאת הקובץ');
-      console.error('Upload error:', err);
     } finally {
       setLoading(false);
     }
@@ -77,23 +89,41 @@ export default function LoadFilePage() {
             העלאת קובץ לוח זמנים
           </Typography>
 
-          <Box sx={{ mb: 3 }}>
+          {checkingStatus ? (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              בודק אם קיימת מערכת שמורה...
+            </Alert>
+          ) : null}
+
+          {!checkingStatus && hasExistingSchedule ? (
+            <Box sx={{ mb: 3, display: 'grid', gap: 1.5 }}>
+              <Alert severity="success">נמצאה מערכת קיימת</Alert>
+              <Button variant="outlined" onClick={() => navigate('/select')}>
+                השתמש במערכת הקיימת
+              </Button>
+              <Button variant="text" onClick={() => setHasExistingSchedule(false)}>
+                טען קובץ חדש במקום הקיים
+              </Button>
+            </Box>
+          ) : null}
+
+          <Box sx={{ mb: 3, opacity: checkingStatus ? 0.5 : 1 }}>
             <input
               ref={inputRef}
               type="file"
-              accept=".pdf"
+              accept=".xlsx,.xls,.pdf"
               style={{ display: 'none' }}
               onChange={handleFileChange}
-              disabled={loading}
+              disabled={loading || checkingStatus}
             />
             <Button
               variant="outlined"
               onClick={() => inputRef.current?.click()}
-              disabled={loading}
+              disabled={loading || checkingStatus}
               fullWidth
               sx={{ mb: 2, textTransform: 'none' }}
             >
-              {selectedFile ? `✓ ${selectedFile.name}` : 'בחר קובץ PDF'}
+              {selectedFile ? `✓ ${selectedFile.name}` : 'בחר קובץ Excel / PDF'}
             </Button>
           </Box>
 
@@ -102,7 +132,7 @@ export default function LoadFilePage() {
             color="primary"
             fullWidth
             onClick={handleUpload}
-            disabled={!selectedFile || loading}
+            disabled={!selectedFile || loading || checkingStatus}
             sx={{ py: 1.5, textTransform: 'none' }}
           >
             {loading ? <CircularProgress size={20} color="inherit" /> : 'העלה קובץ'}

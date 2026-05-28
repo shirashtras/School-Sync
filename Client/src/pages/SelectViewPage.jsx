@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { scheduleAPI } from '../api/scheduleApi';
+import { scheduleAPI } from '../api/scheduleAPI';
 import { useSchedule } from '../hooks/useSchedule';
 import {
   Box,
@@ -15,27 +15,22 @@ import {
   FormLabel,
   Grid,
   Alert,
-  CircularProgress,
 } from '@mui/material';
 
 export default function SelectViewPage() {
-  const [viewType, setViewType] = useState('class'); // 'class', 'teacher', or 'group'
+  const [viewType, setViewType] = useState('class');
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [schedule, setSchedule] = useState(null);
   const navigate = useNavigate();
-  const { setSelectedClass, setSelectedTeacher, setSelectedGroup } = useSchedule();
+  const { setSelectedClass, setSelectedTeacher, setSelectedGroup, setSelectedDay } = useSchedule();
 
-  // Fetch items based on view type
   useEffect(() => {
     const fetchItems = async () => {
       setLoading(true);
       setError('');
       setSelectedItem('');
-      setSchedule(null);
-
       try {
         let response;
         switch (viewType) {
@@ -48,55 +43,36 @@ export default function SelectViewPage() {
           case 'group':
             response = await scheduleAPI.getAllGroups();
             break;
+          case 'day':
+            response = await scheduleAPI.getAllDays();
+            break;
           default:
             response = { data: [] };
         }
         setItems(response.data || []);
       } catch (err) {
-        setError(`שגיאה בטעינת ${viewType === 'class' ? 'כיתות' : viewType === 'teacher' ? 'מורים' : 'הקבצות'}: ${err.message}`);
+        setError(`שגיאה בטעינת הרשימה: ${err.message}`);
         setItems([]);
       } finally {
         setLoading(false);
       }
     };
-
     fetchItems();
   }, [viewType]);
 
-  // Fetch schedule when item is selected
-  const handleSelectItem = async (itemName) => {
+  const handleSelectItem = (itemName) => {
     setSelectedItem(itemName);
-    setLoading(true);
-    setError('');
-    setSchedule(null);
+    setSelectedClass(null);
+    setSelectedTeacher(null);
+    setSelectedGroup(null);
+    setSelectedDay(null);
 
-    try {
-      let response;
-      switch (viewType) {
-        case 'class':
-          response = await scheduleAPI.getClassSchedule(itemName);
-          break;
-        case 'teacher':
-          response = await scheduleAPI.getTeacherSchedule(itemName);
-          break;
-        case 'group':
-          response = await scheduleAPI.getGroupSchedule(itemName);
-          break;
-        default:
-          response = { data: null };
-      }
-      setSchedule(response.data);
-      // Set selected in context
-      if (viewType === 'class') setSelectedClass(itemName);
-      else if (viewType === 'teacher') setSelectedTeacher(itemName);
-      else if (viewType === 'group') setSelectedGroup(itemName);
-      // Navigate to schedule page
-      navigate('/schedule');
-    } catch (err) {
-      setError(`שגיאה בטעינת לוח הזמנים: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    if (viewType === 'class') setSelectedClass(itemName);
+    if (viewType === 'teacher') setSelectedTeacher(itemName);
+    if (viewType === 'group') setSelectedGroup(itemName);
+    if (viewType === 'day') setSelectedDay(itemName);
+
+    navigate('/schedule');
   };
 
   const getViewTitle = () => {
@@ -107,6 +83,8 @@ export default function SelectViewPage() {
         return '👨‍🏫 בחר מורה';
       case 'group':
         return '👥 בחר הקבצה';
+      case 'day':
+        return '📅 בחר יום';
       default:
         return 'בחר תצוגה';
     }
@@ -139,27 +117,11 @@ export default function SelectViewPage() {
               <FormLabel component="legend" sx={{ mb: 2, color: '#667eea', fontSize: 18, fontWeight: 700 }}>
                 בחר סוג תצוגה:
               </FormLabel>
-              <RadioGroup
-                row
-                value={viewType}
-                onChange={(e) => setViewType(e.target.value)}
-                sx={{ flexWrap: 'wrap', gap: 2 }}
-              >
-                <FormControlLabel
-                  value="class"
-                  control={<Radio />}
-                  label="📚 לפי כיתה"
-                />
-                <FormControlLabel
-                  value="teacher"
-                  control={<Radio />}
-                  label="👨‍🏫 לפי מורה"
-                />
-                <FormControlLabel
-                  value="group"
-                  control={<Radio />}
-                  label="👥 לפי הקבצה"
-                />
+              <RadioGroup row value={viewType} onChange={(e) => setViewType(e.target.value)} sx={{ flexWrap: 'wrap', gap: 2 }}>
+                <FormControlLabel value="class" control={<Radio />} label="📚 לפי כיתה" />
+                <FormControlLabel value="teacher" control={<Radio />} label="👨‍🏫 לפי מורה" />
+                <FormControlLabel value="group" control={<Radio />} label="👥 לפי הקבצה" />
+                <FormControlLabel value="day" control={<Radio />} label="📅 לפי יום" />
               </RadioGroup>
             </FormControl>
           </Box>
@@ -169,19 +131,9 @@ export default function SelectViewPage() {
               {getViewTitle()}
             </Typography>
 
-            {loading && (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                ⏳ טוען...
-              </Alert>
-            )}
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
-            {!loading && items.length === 0 && !error && (
-              <Alert severity="warning">אין פריטים זמינים</Alert>
-            )}
+            {loading && <Alert severity="info" sx={{ mb: 2 }}>⏳ טוען...</Alert>}
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {!loading && items.length === 0 && !error && <Alert severity="warning">אין פריטים זמינים</Alert>}
 
             <Grid container spacing={2} sx={{ mt: 1 }}>
               {items.map((item) => (
@@ -199,31 +151,6 @@ export default function SelectViewPage() {
               ))}
             </Grid>
           </Box>
-
-          {schedule && (
-            <Box sx={{ mb: 4, p: 3, bgcolor: '#f8f9fa', borderRadius: 3, borderLeft: '4px solid #667eea' }}>
-              <Typography variant="h5" sx={{ mb: 2, color: '#333', fontWeight: 700 }}>
-                לוח זמנים של {selectedItem}
-              </Typography>
-              <Paper sx={{ p: 2, bgcolor: 'white', border: '1px solid #ddd' }}>
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit' }}>
-                  {JSON.stringify(schedule, null, 2)}
-                </pre>
-              </Paper>
-              <Button
-                variant="contained"
-                color="primary"
-                sx={{ mt: 3, textTransform: 'none' }}
-                onClick={() => window.print()}
-              >
-                🖨️ הדפס
-              </Button>
-            </Box>
-          )}
-
-          {selectedItem && !schedule && !loading && !error && (
-            <Alert severity="info">אין לוח זמנים זמין</Alert>
-          )}
         </Paper>
       </Container>
     </Box>

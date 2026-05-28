@@ -26,6 +26,14 @@ export const scheduleAPI = {
 
   getAllGroups: () => apiClient.get('/schedule/groups'),
 
+  getAllDays: () => apiClient.get('/schedule/days'),
+
+  getDaySchedule: (dayName) => apiClient.get(`/schedule/days/${dayName}`),
+
+  getStatus: () => apiClient.get('/schedule/status'),
+
+  updateLesson: (payload) => apiClient.put('/schedule/lesson', payload),
+
   getFullSchedule: () => apiClient.get('/schedule/full'),
 };
 

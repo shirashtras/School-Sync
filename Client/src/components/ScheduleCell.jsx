@@ -1,6 +1,7 @@
 import React from 'react';
+import { Button } from '@mui/material';
 
-const ScheduleCell = ({ entries }) => {
+const ScheduleCell = ({ entries, onEdit, selectedType }) => {
   if (!entries || entries.length === 0) {
     return <span>-</span>;
   }
@@ -10,8 +11,20 @@ const ScheduleCell = ({ entries }) => {
       {entries.map((entry, index) => (
         <div key={index} style={{ border: '1px solid #ccc', padding: '4px', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
           <div><strong>{entry.subject}</strong></div>
-          <div style={{ fontSize: '0.8em' }}>{entry.teacher}</div>
-          <div style={{ fontSize: '0.8em' }}>{entry.group}</div>
+          {selectedType !== 'מורה' && entry.teacher && (
+            <div style={{ fontSize: '0.8em' }}>{entry.teacher}</div>
+          )}
+          {selectedType === 'מורה' && entry.className && (
+            <div style={{ fontSize: '0.8em' }}>כיתה: {entry.className}</div>
+          )}
+          {entry.group && (
+            <div style={{ fontSize: '0.8em' }}>הקבצה: {entry.group}</div>
+          )}
+          {onEdit && (
+            <Button size="small" onClick={() => onEdit(entry)} sx={{ mt: 1 }}>
+              עריכה
+            </Button>
+          )}
         </div>
       ))}
     </div>

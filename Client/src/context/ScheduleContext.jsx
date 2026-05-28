@@ -10,6 +10,7 @@ export function ScheduleProvider({ children }) {
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
 
   const uploadFile = useCallback(async (file) => {
     setLoading(true);
@@ -85,6 +86,35 @@ export function ScheduleProvider({ children }) {
     }
   }, []);
 
+  const fetchDaySchedule = useCallback(async (dayName) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await scheduleAPI.getDaySchedule(dayName);
+      setSelectedDay(dayName);
+      return response.data;
+    } catch (err) {
+      setError(err.response?.data?.message || 'שגיאה בטעינת לוח הזמנים');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateLesson = useCallback(async (payload) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await scheduleAPI.updateLesson(payload);
+      return response.data;
+    } catch (err) {
+      setError(err.response?.data?.message || 'שגיאה בעדכון השיעור');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -97,11 +127,13 @@ export function ScheduleProvider({ children }) {
     selectedClass,
     selectedTeacher,
     selectedGroup,
+    selectedDay,
 
     // State setters
     setSelectedClass,
     setSelectedTeacher,
     setSelectedGroup,
+    setSelectedDay,
 
     // Actions
     uploadFile,
@@ -109,6 +141,8 @@ export function ScheduleProvider({ children }) {
     fetchClassSchedule,
     fetchTeacherSchedule,
     fetchGroupSchedule,
+    fetchDaySchedule,
+    updateLesson,
     clearError,
   };
 
