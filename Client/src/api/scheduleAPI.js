@@ -2,11 +2,8 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-});
+const apiClient = axios.create({ baseURL: API_BASE_URL });
 
-// Schedule API endpoints
 export const scheduleAPI = {
   upload: (file) => {
     const formData = new FormData();
@@ -14,25 +11,26 @@ export const scheduleAPI = {
     return apiClient.post('/schedule/upload', formData);
   },
 
+  getStatus: () => apiClient.get('/schedule/status'),
+
   getClasses: () => apiClient.get('/schedule/classes'),
-
-  getClassSchedule: (className) => apiClient.get(`/schedule/classes/${className}`),
-
-  getTeacherSchedule: (teacherName) => apiClient.get(`/schedule/teachers/${teacherName}`),
-
-  getGroupSchedule: (groupName) => apiClient.get(`/schedule/groups/${groupName}`),
 
   getAllTeachers: () => apiClient.get('/schedule/teachers'),
 
-  getAllGroups: () => apiClient.get('/schedule/groups'),
-
   getAllDays: () => apiClient.get('/schedule/days'),
 
-  getDaySchedule: (dayName) => apiClient.get(`/schedule/days/${dayName}`),
+  getLessons: () => apiClient.get('/schedule/lessons'),
 
-  getStatus: () => apiClient.get('/schedule/status'),
+  getClassSchedule: (className) =>
+    apiClient.get(`/schedule/class/${encodeURIComponent(className)}`),
 
-  updateLesson: (payload) => apiClient.put('/schedule/lesson', payload),
+  getTeacherSchedule: (teacherName) =>
+    apiClient.get(`/schedule/teacher/${encodeURIComponent(teacherName)}`),
+
+  getDaySchedule: (dayName) =>
+    apiClient.get(`/schedule/day/${encodeURIComponent(dayName)}`),
+
+  updateLesson: (payload) => apiClient.put('/schedule/update', payload),
 
   getFullSchedule: () => apiClient.get('/schedule/full'),
 };

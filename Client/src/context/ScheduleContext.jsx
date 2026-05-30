@@ -4,12 +4,11 @@ import { scheduleAPI } from '../api/scheduleAPI';
 export const ScheduleContext = createContext();
 
 export function ScheduleProvider({ children }) {
-  const [scheduleData, setScheduleData] = useState(null);
+  const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
 
   const uploadFile = useCallback(async (file) => {
@@ -17,7 +16,8 @@ export function ScheduleProvider({ children }) {
     setError(null);
     try {
       const response = await scheduleAPI.upload(file);
-      setScheduleData(response.data);
+      const full = await scheduleAPI.getLessons();
+      setLessons(full.data || []);
       return response.data;
     } catch (err) {
       setError(err.response?.data?.message || 'שגיאה בהעלאת הקובץ');
@@ -41,12 +41,42 @@ export function ScheduleProvider({ children }) {
     }
   }, []);
 
+  const fetchTeachers = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await scheduleAPI.getAllTeachers();
+      return response.data;
+    } catch (err) {
+      setError(err.response?.data?.message || 'שגיאה בטעינת המורים');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchDays = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await scheduleAPI.getAllDays();
+      return response.data;
+    } catch (err) {
+      setError(err.response?.data?.message || 'שגיאה בטעינת הימים');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const fetchClassSchedule = useCallback(async (className) => {
     setLoading(true);
     setError(null);
     try {
       const response = await scheduleAPI.getClassSchedule(className);
       setSelectedClass(className);
+      setSelectedTeacher(null);
+      setSelectedDay(null);
       return response.data;
     } catch (err) {
       setError(err.response?.data?.message || 'שגיאה בטעינת לוח הזמנים');
@@ -62,21 +92,8 @@ export function ScheduleProvider({ children }) {
     try {
       const response = await scheduleAPI.getTeacherSchedule(teacherName);
       setSelectedTeacher(teacherName);
-      return response.data;
-    } catch (err) {
-      setError(err.response?.data?.message || 'שגיאה בטעינת לוח הזמנים');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchGroupSchedule = useCallback(async (groupName) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await scheduleAPI.getGroupSchedule(groupName);
-      setSelectedGroup(groupName);
+      setSelectedClass(null);
+      setSelectedDay(null);
       return response.data;
     } catch (err) {
       setError(err.response?.data?.message || 'שגיאה בטעינת לוח הזמנים');
@@ -92,6 +109,8 @@ export function ScheduleProvider({ children }) {
     try {
       const response = await scheduleAPI.getDaySchedule(dayName);
       setSelectedDay(dayName);
+      setSelectedClass(null);
+      setSelectedTeacher(null);
       return response.data;
     } catch (err) {
       setError(err.response?.data?.message || 'שגיאה בטעינת לוח הזמנים');
@@ -106,6 +125,8 @@ export function ScheduleProvider({ children }) {
     setError(null);
     try {
       const response = await scheduleAPI.updateLesson(payload);
+      const full = await scheduleAPI.getLessons();
+      setLessons(full.data || []);
       return response.data;
     } catch (err) {
       setError(err.response?.data?.message || 'שגיאה בעדכון השיעור');
@@ -115,32 +136,24 @@ export function ScheduleProvider({ children }) {
     }
   }, []);
 
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
+  const clearError = useCallback(() => setError(null), []);
 
   const value = {
-    // State
-    scheduleData,
+    lessons,
     loading,
     error,
     selectedClass,
     selectedTeacher,
-    selectedGroup,
     selectedDay,
-
-    // State setters
     setSelectedClass,
     setSelectedTeacher,
-    setSelectedGroup,
     setSelectedDay,
-
-    // Actions
     uploadFile,
     fetchClasses,
+    fetchTeachers,
+    fetchDays,
     fetchClassSchedule,
     fetchTeacherSchedule,
-    fetchGroupSchedule,
     fetchDaySchedule,
     updateLesson,
     clearError,

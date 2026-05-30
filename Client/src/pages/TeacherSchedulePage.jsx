@@ -5,11 +5,11 @@ import ScheduleTable from '../components/ScheduleTable';
 import EditableLessonForm from '../components/EditableLessonForm';
 import { Alert, Box, Button, Paper, Typography } from '@mui/material';
 
-export default function ClassSchedulePage() {
+export default function TeacherSchedulePage() {
   const navigate = useNavigate();
   const {
-    selectedClass,
-    fetchClassSchedule,
+    selectedTeacher,
+    fetchTeacherSchedule,
     fetchTeachers,
     updateLesson,
     loading,
@@ -20,15 +20,15 @@ export default function ClassSchedulePage() {
   const [editing, setEditing] = useState(null);
 
   useEffect(() => {
-    if (!selectedClass) return;
-    fetchClassSchedule(selectedClass).then(setSchedule).catch(console.error);
+    if (!selectedTeacher) return;
+    fetchTeacherSchedule(selectedTeacher).then(setSchedule).catch(console.error);
     fetchTeachers().then(setTeachers).catch(console.error);
-  }, [selectedClass, fetchClassSchedule, fetchTeachers]);
+  }, [selectedTeacher, fetchTeacherSchedule, fetchTeachers]);
 
-  if (!selectedClass) {
+  if (!selectedTeacher) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="warning">בחר כיתה תחילה.</Alert>
+        <Alert severity="warning">בחר מורה תחילה.</Alert>
         <Button sx={{ mt: 2 }} onClick={() => navigate('/select')}>חזרה לבחירה</Button>
       </Box>
     );
@@ -39,11 +39,12 @@ export default function ClassSchedulePage() {
 
   const openEdit = (day, hour, entry) => {
     setEditing({
-      className: selectedClass,
+      className: entry.className,
       day,
       hour: Number(hour),
       subject: entry.subject || '',
       teacher: entry.teacher || '',
+      originalTeacher: selectedTeacher,
     });
   };
 
@@ -54,8 +55,9 @@ export default function ClassSchedulePage() {
       hour: Number(lesson.hour),
       subject: lesson.subject,
       teacher: lesson.teacher,
+      originalTeacher: lesson.originalTeacher,
     });
-    const refreshed = await fetchClassSchedule(selectedClass);
+    const refreshed = await fetchTeacherSchedule(selectedTeacher);
     setSchedule(refreshed);
     setEditing(null);
   };
@@ -65,7 +67,7 @@ export default function ClassSchedulePage() {
       <Paper sx={{ p: { xs: 2, md: 4 }, borderRadius: 4, boxShadow: 6, direction: 'rtl' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h4" component="h1">
-            מערכת כיתה: {selectedClass}
+            מערכת מורה: {selectedTeacher}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button variant="outlined" onClick={() => navigate('/select')}>חזרה</Button>
@@ -75,7 +77,7 @@ export default function ClassSchedulePage() {
 
         <ScheduleTable
           schedule={schedule}
-          viewMode="class"
+          viewMode="teacher"
           onEdit={openEdit}
         />
       </Paper>
