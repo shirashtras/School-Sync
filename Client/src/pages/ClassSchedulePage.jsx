@@ -38,12 +38,18 @@ export default function ClassSchedulePage() {
   if (error) return <Box sx={{ p: 3 }}><Alert severity="error">{error}</Alert></Box>;
 
   const openEdit = (day, hour, entry) => {
+    const teachers = (entry.teacher || '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean);
     setEditing({
       className: selectedClass,
       day,
       hour: Number(hour),
       subject: entry.subject || '',
       teacher: entry.teacher || '',
+      originalSubject: entry.subject || '',
+      originalTeacher: teachers.length === 1 ? teachers[0] : null,
     });
   };
 
@@ -54,6 +60,8 @@ export default function ClassSchedulePage() {
       hour: Number(lesson.hour),
       subject: lesson.subject,
       teacher: lesson.teacher,
+      originalSubject: lesson.originalSubject,
+      originalTeacher: lesson.originalTeacher,
     });
     const refreshed = await fetchClassSchedule(selectedClass);
     setSchedule(refreshed);

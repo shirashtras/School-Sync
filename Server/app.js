@@ -73,9 +73,9 @@ app.post('/api/schedule/upload', upload.single('file'), async (req, res) => {
 
     let lessons = [];
     if (isPdf) {
-      lessons = await parsePdfFile(req.file.path);
+      lessons = await parsePdfFile(req.file.path, req.file.originalname);
     } else {
-      lessons = parseExcelWorkbook(req.file.path);
+      lessons = parseExcelWorkbook(req.file.path, req.file.originalname);
     }
 
     scheduleData = buildScheduleIndexes(lessons.map(normalizeLesson));
@@ -133,7 +133,8 @@ app.put('/api/schedule/update', (req, res) => {
       subject,
       teacher = null,
       originalTeacher = null,
-      group = null,
+      originalSubject = null,
+      duration = null,
     } = req.body || {};
 
     const targetHour = Number(hour);
@@ -144,15 +145,15 @@ app.put('/api/schedule/update', (req, res) => {
     const matchAtSlot = (lesson) =>
       lesson.className === className &&
       lesson.day === day &&
-      lesson.hour === targetHour &&
-      (group ? lesson.group === group : true);
+      lesson.hour === targetHour;
 
     const indices = scheduleData.lessons
       .map((lesson, index) => ({ lesson, index }))
       .filter(({ lesson }) => {
         if (!matchAtSlot(lesson)) return false;
-        if (!originalTeacher) return true;
-        return lesson.teacher === originalTeacher;
+        if (originalSubject && lesson.subject !== originalSubject) return false;
+        if (originalTeacher) return lesson.teacher === originalTeacher;
+        return true;
       })
       .map(({ index }) => index);
 
@@ -170,7 +171,8 @@ app.put('/api/schedule/update', (req, res) => {
         ...updated[index],
         subject,
         teacher: nextTeacher,
-        group,
+        group: null,
+        duration: duration != null ? Number(duration) : updated[index].duration,
       });
     });
 

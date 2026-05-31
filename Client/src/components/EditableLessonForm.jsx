@@ -6,6 +6,8 @@ import {
   TextField,
   Button,
   MenuItem,
+  Box,
+  Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 
@@ -38,7 +40,9 @@ export default function EditableLessonForm({
       hour: Number(lesson.hour),
       subject: form.subject.trim(),
       teacher: form.teacher.trim() || null,
-      originalTeacher: lesson.originalTeacher ?? lesson.teacher,
+      originalTeacher: lesson.originalTeacher ?? null,
+      originalSubject: lesson.originalSubject ?? lesson.subject,
+      duration: lesson.duration ?? null,
     });
   };
 
@@ -46,6 +50,14 @@ export default function EditableLessonForm({
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>עריכת שיעור</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1, direction: 'rtl' }}>
+        {lesson && (
+          <Box sx={{ p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              כיתה: {lesson.className} · יום: {lesson.day} · שעה: {lesson.hour}
+              {lesson.duration ? ` (${lesson.duration} שעות)` : ''}
+            </Typography>
+          </Box>
+        )}
         <TextField
           label="מקצוע"
           value={form.subject}

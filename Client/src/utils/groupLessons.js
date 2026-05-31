@@ -5,12 +5,13 @@ export const mergeCellEntries = (entries, viewMode = 'class') => {
 
   const merged = new Map();
   entries.forEach((entry) => {
-    const key = entry.subject;
+    const key = entry.subject || '';
     if (!merged.has(key)) {
       merged.set(key, {
         ...entry,
         teacher: entry.teacher || '',
         className: entry.className || '',
+        group: null,
       });
       return;
     }
@@ -21,6 +22,7 @@ export const mergeCellEntries = (entries, viewMode = 'class') => {
       .map((name) => name.trim())
       .filter(Boolean);
     current.teacher = [...new Set(teachers)].join(', ');
+    current.group = null;
   });
 
   return Array.from(merged.values());
@@ -55,7 +57,11 @@ export const groupLessonsToGrid = (groupedSchedule, viewMode = 'class') => {
     });
   }
 
-  return { days, hours, grid };
+  const allHours = sortHours(
+    Object.values(grid).flatMap((dayMap) => Object.keys(dayMap))
+  );
+
+  return { days, hours: allHours.length ? allHours : hours, grid };
 };
 
 export const groupLessonsByDayHour = (lessons) => {

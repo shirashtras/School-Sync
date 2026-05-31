@@ -30,10 +30,12 @@ export default function SelectViewPage() {
       setLoading(true);
       setError('');
       try {
-        const response =
-          viewType === 'class'
-            ? await scheduleAPI.getClasses()
-            : await scheduleAPI.getAllTeachers();
+        let response;
+        if (viewType === 'class') {
+          response = await scheduleAPI.getClasses();
+        } else {
+          response = await scheduleAPI.getAllTeachers();
+        }
         setItems(response.data || []);
       } catch (err) {
         setError(`שגיאה בטעינת הרשימה: ${err.message}`);
@@ -59,7 +61,7 @@ export default function SelectViewPage() {
   };
 
   const getViewTitle = () =>
-    viewType === 'class' ? '📚 בחר כיתה' : '👨‍🏫 בחר מורה';
+    (viewType === 'class' ? '📚 בחר כיתה' : '👨‍🏫 בחר מורה');
 
   return (
     <Box
@@ -93,12 +95,12 @@ export default function SelectViewPage() {
             </FormControl>
           </Box>
 
-          <Box sx={{ mb: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
+          <Box sx={{ mb: 2, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Button variant="outlined" onClick={() => navigate('/')}>
               טען קובץ חדש
             </Button>
             <Button variant="contained" onClick={() => navigate('/print')}>
-              🖨️ הדפסה
+              הדפסה
             </Button>
           </Box>
 

@@ -53,12 +53,12 @@ export default function LoadFilePage() {
 
     setLoading(true);
     setError('');
-    setMessage('');
+    setMessage('מעבד את הקובץ (Parsing)…');
 
     try {
       const response = await scheduleAPI.upload(selectedFile);
 
-      setMessage('הקובץ הועלה בהצלחה!');
+      setMessage('המערכת מוכנה!');
       setSelectedFile(null);
       if (inputRef.current) {
         inputRef.current.value = '';
@@ -137,6 +137,12 @@ export default function LoadFilePage() {
           >
             {loading ? <CircularProgress size={20} color="inherit" /> : 'העלה קובץ'}
           </Button>
+
+          {loading && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Parsing…
+            </Alert>
+          )}
 
           {message && (
             <Alert severity="success" sx={{ mt: 3 }}>

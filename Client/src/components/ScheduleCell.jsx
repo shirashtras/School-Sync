@@ -17,9 +17,6 @@ const ScheduleCell = ({ entries, onEdit, selectedType }) => {
           {selectedType === 'מורה' && entry.className && (
             <div style={{ fontSize: '0.8em' }}>כיתה: {entry.className}</div>
           )}
-          {entry.group && (
-            <div style={{ fontSize: '0.8em' }}>הקבצה: {entry.group}</div>
-          )}
           {onEdit && (
             <Button size="small" onClick={() => onEdit(entry)} sx={{ mt: 1 }}>
               עריכה

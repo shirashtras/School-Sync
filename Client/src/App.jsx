@@ -4,6 +4,7 @@ import LoadFilePage from './pages/LoadFilePage';
 import SelectViewPage from './pages/SelectViewPage';
 import ClassSchedulePage from './pages/ClassSchedulePage';
 import TeacherSchedulePage from './pages/TeacherSchedulePage';
+import DaySchedulePage from './pages/DaySchedulePage';
 import PrintSettingsPage from './pages/PrintSettingsPage';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
           <Route path="/select" element={<SelectViewPage />} />
           <Route path="/schedule/class" element={<ClassSchedulePage />} />
           <Route path="/schedule/teacher" element={<TeacherSchedulePage />} />
+          <Route path="/schedule/day" element={<DaySchedulePage />} />
           <Route path="/schedule" element={<ClassSchedulePage />} />
           <Route path="/print" element={<PrintSettingsPage />} />
         </Routes>

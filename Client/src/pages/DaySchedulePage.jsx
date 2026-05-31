@@ -51,7 +51,7 @@ export default function DaySchedulePage() {
   );
 
   return (
-    <Box sx={{ p: 3, minHeight: '100vh', backgroundColor: '#f5f7ff' }}>
+    <Box sx={{ p: 3, minHeight: '100vh', backgroundColor: '#f5f7ff', direction: 'rtl' }}>
       <Paper sx={{ p: { xs: 2, md: 4 }, borderRadius: 4, boxShadow: 6 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h4" component="h1">

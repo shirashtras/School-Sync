@@ -45,6 +45,7 @@ export default function TeacherSchedulePage() {
       subject: entry.subject || '',
       teacher: entry.teacher || '',
       originalTeacher: selectedTeacher,
+      originalSubject: entry.subject || '',
     });
   };
 
@@ -56,6 +57,8 @@ export default function TeacherSchedulePage() {
       subject: lesson.subject,
       teacher: lesson.teacher,
       originalTeacher: lesson.originalTeacher,
+      originalSubject: lesson.originalSubject,
+      duration: lesson.duration,
     });
     const refreshed = await fetchTeacherSchedule(selectedTeacher);
     setSchedule(refreshed);

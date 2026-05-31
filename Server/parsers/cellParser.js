@@ -7,7 +7,7 @@ const SUBJECT_KEYWORDS = [
   'באורי תפילה', 'פרקי אבות', 'העשרה', 'תגבור', 'שעת סיפור', 'זהב', 'חברה',
   'גדולי ישראל', 'מהנה', 'ומשתנה', 'מיומנויות', 'ריתמיקה', 'פעילות', 'שבת',
   'השלמה', 'מדוברת', 'שבוע', 'תפילה', 'ישראל', 'חיים', 'סיפור', 'כתיבה',
-  'פרשת', 'נושא',
+  'פרשת', 'נושא', 'כתיב', 'התעמלות',
 ];
 
 const SUBJECT_LINE_CONTINUATIONS = new Set([
@@ -15,20 +15,44 @@ const SUBJECT_LINE_CONTINUATIONS = new Set([
   'סיפור1', 'סיפור2', 'סיפור3', 'סיפור4',
 ]);
 
-const CLASS_TOKEN = /[א-ת]\d+/g;
-
 export { WEEK_DAYS, SUBJECT_KEYWORDS };
+
+export const isClassNameToken = (token) => {
+  const text = (token || '').toString().trim();
+  if (!text) return false;
+  if (/^[א-ת]\d+$/.test(text)) return true;
+  if (/^[א-ת]$/.test(text)) return true;
+  if (/^[A-Z]$/.test(text)) return true;
+  if (/^\d{1,2}$/.test(text)) return true;
+  return false;
+};
 
 export const normalizeClassToken = (token) => {
   const cleaned = (token || '').toString().trim();
   if (!cleaned) return '';
+  if (isClassNameToken(cleaned)) return cleaned;
   const match = cleaned.match(/[א-ת]\d+/);
   return match ? match[0] : cleaned;
 };
 
 export const extractClassTokens = (text) => {
-  const matches = (text || '').toString().match(CLASS_TOKEN) || [];
-  return [...new Set(matches.map(normalizeClassToken))].filter((t) => /^[א-ת]\d+$/.test(t));
+  const source = (text || '').toString();
+  const found = new Set();
+
+  (source.match(/[א-ת]\d+/g) || []).forEach((match) => {
+    const normalized = normalizeClassToken(match);
+    if (isClassNameToken(normalized)) found.add(normalized);
+  });
+
+  source.split(/[\s,]+/).forEach((token) => {
+    const trimmed = token.trim();
+    const normalized = normalizeClassToken(trimmed);
+    if (isClassNameToken(normalized) && trimmed === normalized) {
+      found.add(normalized);
+    }
+  });
+
+  return [...found];
 };
 
 export const splitByComma = (value) =>
@@ -38,11 +62,14 @@ export const splitByComma = (value) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const isLikelySubject = (word) =>
+  SUBJECT_KEYWORDS.some((kw) => word.includes(kw) || kw.includes(word));
+
 export const isValidTeacherName = (name) => {
   const text = (name || '').toString().trim();
   if (!text || text.length < 2) return false;
   if (isLikelySubject(text)) return false;
-  if (/^[א-ת]\d+$/.test(text)) return false;
+  if (isClassNameToken(text)) return false;
   if (/^\d+$/.test(text)) return false;
   if (SUBJECT_KEYWORDS.includes(text)) return false;
   if (SUBJECT_LINE_CONTINUATIONS.has(text)) return false;
@@ -72,16 +99,16 @@ export const normalizeSubjectTeacher = (subject, teacher) => {
   let normalizedSubject = (subject || '').trim();
   let normalizedTeacher = cleanTeacherName(teacher);
 
-  if (normalizedTeacher && /^פרקי אבות\s+/.test(teacher || '')) {
+  if (normalizedSubject === 'באורי' && (teacher || '').includes('פרקי אבות')) {
+    normalizedSubject = 'באורי תפילה, פרקי אבות';
+    normalizedTeacher = cleanTeacherName(teacher);
+  }
+
+  if (/^פרקי אבות\s+/.test(teacher || '')) {
     normalizedTeacher = cleanTeacherName(teacher);
     if (normalizedSubject === 'באורי') {
       normalizedSubject = 'באורי תפילה, פרקי אבות';
     }
-  }
-
-  if (normalizedSubject === 'באורי' && (teacher || '').includes('פרקי אבות')) {
-    normalizedSubject = 'באורי תפילה, פרקי אבות';
-    normalizedTeacher = cleanTeacherName(teacher);
   }
 
   return {
@@ -91,38 +118,117 @@ export const normalizeSubjectTeacher = (subject, teacher) => {
 };
 
 export const splitTeacherNames = (value) =>
-  splitByComma(value).filter(isValidTeacherName);
+  splitByComma(value).map(cleanTeacherName).filter(isValidTeacherName);
 
-const isLikelySubject = (word) =>
-  SUBJECT_KEYWORDS.some((kw) => word.includes(kw) || kw.includes(word));
-
-const isSubjectContinuationLine = (line) => {
-  const text = (line || '').toString().trim();
-  if (!text) return false;
-  if (SUBJECT_LINE_CONTINUATIONS.has(text)) return true;
-  if (isLikelySubject(text) && !isValidTeacherName(text)) return true;
-  return false;
+const stripClassTokensFromText = (text, classes) => {
+  let result = (text || '').toString();
+  classes.forEach((className) => {
+    result = result.replace(new RegExp(`\\b${className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g'), '');
+  });
+  return result.replace(/\s+,/g, ',').replace(/,\s+/g, ', ').replace(/\s{2,}/g, ' ').trim();
 };
 
-const splitSubjectAndTeacherLines = (lines) => {
-  if (!lines.length) return { subject: '', teacherPart: '' };
+const extractLeadingClasses = (text, allowedClasses = null) => {
+  const trimmed = (text || '').toString().trim();
+  const commaParts = splitByComma(trimmed);
+  const classes = [];
+  const remainderParts = [];
+
+  if (commaParts.length >= 2) {
+    commaParts.forEach((part) => {
+      const token = normalizeClassToken(part.trim().split(/\s+/)[0]);
+      const isAllowed = !allowedClasses || allowedClasses.has(token);
+      if (isClassNameToken(token) && isAllowed && classes.length < commaParts.length) {
+        classes.push(token);
+      } else {
+        remainderParts.push(part);
+      }
+    });
+
+    if (classes.length >= 2) {
+      return { classes, remainder: remainderParts.join(', ').trim() };
+    }
+  }
+
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length >= 2 && isClassNameToken(normalizeClassToken(tokens[0]))) {
+    const first = normalizeClassToken(tokens[0]);
+    const isAllowed = !allowedClasses || allowedClasses.has(first);
+    if (isAllowed) {
+      return { classes: [first], remainder: tokens.slice(1).join(' ') };
+    }
+  }
+
+  return { classes: [], remainder: trimmed };
+};
+
+const parseSubjectAndTeachers = (text) => {
+  const merged = (text || '').toString().trim();
+  if (!merged) return { subject: '', teachers: [] };
+
+  for (const keyword of [...SUBJECT_KEYWORDS].sort((a, b) => b.length - a.length)) {
+    if (merged.startsWith(`${keyword} `)) {
+      const rest = merged.slice(keyword.length).trim();
+      return { subject: keyword, teachers: splitTeacherNames(rest) };
+    }
+    if (merged === keyword) {
+      return { subject: keyword, teachers: [] };
+    }
+  }
+
+  const lines = merged.split(/\s+/);
+  let splitAt = lines.length;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const token = lines[index];
+    if (isValidTeacherName(token) && index > 0) {
+      splitAt = index;
+      break;
+    }
+    if (index > 0) {
+      const partial = lines.slice(0, index + 1).join(' ');
+      if (SUBJECT_KEYWORDS.includes(partial)) {
+        continue;
+      }
+      if (partial.endsWith(',') || SUBJECT_LINE_CONTINUATIONS.has(token)) {
+        continue;
+      }
+    }
+  }
+
+  if (splitAt === lines.length && lines.length === 1) {
+    if (isLikelySubject(lines[0])) {
+      return { subject: lines[0], teachers: [] };
+    }
+    if (isValidTeacherName(lines[0])) {
+      return { subject: '', teachers: [lines[0]] };
+    }
+    return { subject: lines[0], teachers: [] };
+  }
+
+  const subject = lines.slice(0, splitAt).join(' ').replace(/\s+,/g, ',').trim();
+  const teacherText = lines.slice(splitAt).join(' ').trim();
+  return { subject, teachers: splitTeacherNames(teacherText) };
+};
+
+const parseMultilineCell = (lines) => {
+  if (lines.length >= 2 && isValidTeacherName(lines[0]) && !isLikelySubject(lines[0])) {
+    return {
+      subject: lines.slice(1).filter((line) => line !== 'נושא').join(' ').trim(),
+      teachers: splitTeacherNames(lines[0]),
+    };
+  }
 
   const subjectParts = [lines[0]];
   let index = 1;
-
   while (index < lines.length) {
     const current = lines[index];
-    const pirkeiTeacherMatch = current.match(/^פרקי אבות\s+([א-ת].+)$/);
-    if (pirkeiTeacherMatch) {
-      subjectParts.push('פרקי אבות');
-      return {
-        subject: subjectParts.join(' ').replace(/\s+,/g, ',').replace(/\s{2,}/g, ' ').trim(),
-        teacherPart: pirkeiTeacherMatch[1].trim(),
-      };
-    }
-
     const previous = subjectParts[subjectParts.length - 1];
-    if (previous.endsWith(',') || isSubjectContinuationLine(current)) {
+    if (
+      previous.endsWith(',') ||
+      SUBJECT_LINE_CONTINUATIONS.has(current) ||
+      (isLikelySubject(current) && !isValidTeacherName(current))
+    ) {
       subjectParts.push(current);
       index += 1;
       continue;
@@ -130,182 +236,136 @@ const splitSubjectAndTeacherLines = (lines) => {
     break;
   }
 
-  const subject = subjectParts
-    .join(' ')
-    .replace(/\s+,/g, ',')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-
-  const teacherPart = cleanTeacherName(lines.slice(index).join(' ').trim());
-  return { subject, teacherPart };
+  const subject = subjectParts.join(' ').replace(/\s+,/g, ',').trim();
+  const teachers = splitTeacherNames(lines.slice(index).join(' '));
+  return { subject, teachers };
 };
 
-const stripClassesFromText = (text) =>
-  (text || '')
-    .toString()
-    .replace(CLASS_TOKEN, '')
-    .replace(/,/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-const buildLesson = (className, day, hour, subject, teacher) => {
+const buildLesson = (className, day, hour, subject, teacher, group = null, meta = {}) => {
   const normalized = normalizeSubjectTeacher(subject, teacher);
+  const rawCellText = meta.rawCellText != null ? String(meta.rawCellText) : null;
+  const duration = meta.duration != null ? Number(meta.duration) : null;
+  const source = meta.source || null;
+
   return {
     className,
     day,
     hour: Number(hour),
-    subject: normalized.subject,
+    subject: normalized.subject || (rawCellText || '').trim() || '',
     teacher: normalized.teacher,
-    group: null,
+    group,
+    rawCellText,
+    duration: duration && duration > 1 ? duration : null,
+    source,
   };
 };
 
-const expandMultipleTeachers = (className, day, hour, subject, teacherPart) => {
-  const teachers = splitTeacherNames(teacherPart);
-  if (!teachers.length) {
-    return [buildLesson(className, day, hour, subject, null)];
-  }
-  return teachers.map((teacher) => buildLesson(className, day, hour, subject, teacher));
-};
-
-const expandMultipleClasses = (classes, day, hour, subject, teacherPart, allowedClasses = null) => {
+const expandLessons = (
+  classNames,
+  day,
+  hour,
+  subject,
+  teachers,
+  allowedClasses = null,
+  meta = {}
+) => {
+  const targets = (classNames.length ? classNames : ['']).filter(Boolean);
   const validClasses = allowedClasses
-    ? classes.filter((className) => allowedClasses.has(className))
-    : classes;
+    ? targets.filter((name) => allowedClasses.has(name))
+    : targets;
 
-  if (!validClasses.length) {
-    return [buildLesson(classes[0] || '', day, hour, subject, teacherPart)];
-  }
+  const classList = validClasses.length ? validClasses : targets;
+  const teacherList = teachers.length ? teachers : [null];
+  const lessons = [];
 
-  const teachers = splitTeacherNames(teacherPart);
-  if (!teachers.length) {
-    return validClasses.map((className) => buildLesson(className, day, hour, subject, null));
-  }
-  return validClasses.flatMap((className) =>
-    teachers.map((teacher) => buildLesson(className, day, hour, subject, teacher))
-  );
+  classList.forEach((className) => {
+    teacherList.forEach((teacher) => {
+      if (!subject && !teacher) return;
+      lessons.push(buildLesson(className, day, hour, subject, teacher, null, meta));
+    });
+  });
+
+  return lessons;
 };
 
-const parseSingleLineCell = (text) => {
-  const trimmed = (text || '').trim();
-  if (!trimmed || !trimmed.includes(' ')) return null;
-
-  for (const keyword of [...SUBJECT_KEYWORDS].sort((a, b) => b.length - a.length)) {
-    if (trimmed.startsWith(`${keyword} `)) {
-      return { subject: keyword, teacherPart: trimmed.slice(keyword.length).trim() };
-    }
-  }
-
-  const { subject, teacherPart } = splitSubjectAndTeacherLines([trimmed]);
-  if (subject && teacherPart) return { subject, teacherPart };
-
-  const words = trimmed.split(/\s+/);
-  if (words.length >= 2 && isLikelySubject(words[0])) {
-    return { subject: words[0], teacherPart: words.slice(1).join(' ') };
-  }
-
-  return null;
-};
-
-const detectTeacherFirstLines = (lines) => {
-  if (lines.length < 2) return null;
-
-  if (
-    isValidTeacherName(lines[0]) &&
-    (isLikelySubject(lines[1]) || SUBJECT_KEYWORDS.some((kw) => lines.slice(1).join(' ').includes(kw)))
-  ) {
-    return {
-      subject: lines.slice(1).filter((line) => !/^נושא$/i.test(line)).join(' ').trim(),
-      teacherPart: lines[0],
-    };
-  }
-
-  return null;
-};
-
-export const parseCellContent = (rawValue, className, day, hour, allowedClasses = null) => {
+export const parseCellContent = (
+  rawValue,
+  className,
+  day,
+  hour,
+  allowedClasses = null,
+  meta = {}
+) => {
   const rawText = (rawValue ?? '').toString().trim();
-  if (!rawText) return [];
+  if (!rawText || rawText === 'נושא') return [];
+
+  const cellMeta = {
+    rawCellText: meta.rawCellText ?? rawText,
+    source: meta.source || null,
+    duration: meta.duration || null,
+  };
 
   const lines = rawText.split(/\r?\n/).map((part) => part.trim()).filter(Boolean);
-  const filterClasses = (classes) =>
-    allowedClasses ? classes.filter((name) => allowedClasses.has(name)) : classes;
+  const mergedLine = lines.join(' ').replace(/\s+/g, ' ').trim();
 
-  if (lines.length === 1) {
-    const onlyClassTokens = filterClasses(extractClassTokens(lines[0]));
-    if (onlyClassTokens.length && stripClassesFromText(lines[0]) === '') {
-      return [];
-    }
-    if (isValidTeacherName(lines[0])) {
-      return [];
-    }
-    const inline = parseSingleLineCell(lines[0]);
-    if (inline) {
-      return expandMultipleTeachers(className, day, hour, inline.subject, inline.teacherPart);
-    }
-  }
-
-  const teacherFirst = detectTeacherFirstLines(lines);
-  if (teacherFirst) {
-    return expandMultipleTeachers(
-      className,
-      day,
-      hour,
-      teacherFirst.subject,
-      teacherFirst.teacherPart
-    );
-  }
+  let subject = '';
+  let teachers = [];
+  let explicitClasses = [];
 
   if (lines.length >= 2) {
-    const firstClasses = filterClasses(extractClassTokens(lines[0]));
-    if (firstClasses.length >= 2 && lines.length >= 3) {
-      const { subject, teacherPart } = splitSubjectAndTeacherLines(lines.slice(1));
-      return expandMultipleClasses(firstClasses, day, hour, subject, teacherPart, allowedClasses);
+    const leadingFromFirst = extractLeadingClasses(lines[0], allowedClasses);
+    if (leadingFromFirst.classes.length >= 2) {
+      explicitClasses = leadingFromFirst.classes;
+      const parsed = parseMultilineCell(
+        leadingFromFirst.remainder
+          ? [leadingFromFirst.remainder, ...lines.slice(1)]
+          : lines.slice(1)
+      );
+      subject = parsed.subject;
+      teachers = parsed.teachers;
+    } else {
+      const parsed = parseMultilineCell(lines);
+      subject = parsed.subject;
+      teachers = parsed.teachers;
     }
+  } else {
+    const leading = extractLeadingClasses(mergedLine, allowedClasses);
+    explicitClasses = leading.classes;
+    const parsed = parseSubjectAndTeachers(leading.remainder || mergedLine);
+    subject = parsed.subject;
+    teachers = parsed.teachers;
+  }
 
-    const { subject, teacherPart } = splitSubjectAndTeacherLines(lines);
-    const explicitClasses = filterClasses(extractClassTokens(teacherPart));
+  if (!explicitClasses.length) {
+    explicitClasses = extractClassTokens(mergedLine).filter(
+      (name) => !allowedClasses || allowedClasses.has(name)
+    );
     if (explicitClasses.length >= 2) {
-      const teacher = stripClassesFromText(teacherPart.replace(/[–\-].*/, '').trim());
-      const dashMatch = teacherPart.match(/[–\-]\s*(.+)$/);
-      const finalTeacher = dashMatch ? dashMatch[1].trim() : teacher;
-      return expandMultipleClasses(explicitClasses, day, hour, subject, finalTeacher, allowedClasses);
+      subject = stripClassTokensFromText(subject || mergedLine, explicitClasses);
+      const reparsed = parseSubjectAndTeachers(subject);
+      subject = reparsed.subject || subject;
+      teachers = teachers.length ? teachers : reparsed.teachers;
     }
-    return expandMultipleTeachers(className, day, hour, subject, teacherPart);
   }
 
-  const dashParts = rawText.split(/\s*[–\-]\s*/);
-  if (dashParts.length >= 2) {
-    const left = dashParts[0].trim();
-    const teacherPart = dashParts.slice(1).join(' - ').trim();
-    const classes = filterClasses(extractClassTokens(left));
-    const { subject } = splitSubjectAndTeacherLines([left]);
-    if (classes.length >= 2) {
-      return expandMultipleClasses(classes, day, hour, subject, teacherPart, allowedClasses);
-    }
-    return expandMultipleTeachers(className, day, hour, subject, teacherPart);
+  if (explicitClasses.length >= 2) {
+    return expandLessons(explicitClasses, day, hour, subject, teachers, allowedClasses, cellMeta);
   }
 
-  const classesInCell = filterClasses(extractClassTokens(rawText));
-  const { subject, teacherPart } = splitSubjectAndTeacherLines([rawText]);
-
-  if (classesInCell.length >= 2) {
-    return expandMultipleClasses(classesInCell, day, hour, subject, teacherPart || null, allowedClasses);
+  if (explicitClasses.length === 1 && explicitClasses[0] !== className) {
+    return expandLessons([explicitClasses[0]], day, hour, subject, teachers, allowedClasses, cellMeta);
   }
 
-  if (classesInCell.length === 1 && classesInCell[0] !== className) {
-    return expandMultipleTeachers(classesInCell[0], day, hour, subject, teacherPart);
+  if (!subject && teachers.length === 1) {
+    return [];
   }
 
-  if (teacherPart.includes(',')) {
-    return expandMultipleTeachers(className, day, hour, subject, teacherPart);
+  if (!subject && !teachers.length) return [];
+
+  if (!subject && mergedLine) {
+    subject = mergedLine;
+    teachers = [];
   }
 
-  const slashParts = rawText.split('/').map((p) => p.trim()).filter(Boolean);
-  if (slashParts.length === 2 && !classesInCell.length) {
-    return [buildLesson(className, day, hour, slashParts[0], slashParts[1])];
-  }
-
-  if (!subject) return [];
-  return [buildLesson(className, day, hour, subject, teacherPart || null)];
+  return expandLessons([className], day, hour, subject, teachers, allowedClasses, cellMeta);
 };
